@@ -1,0 +1,22 @@
+package com.smartdoc.entity.enums;
+
+public enum AuditAction {
+    LOGIN,
+    LOGOUT,
+    LOGIN_FAILED,
+    SYSTEM_INIT,
+    UPLOAD_DOC,
+    VERIFY_DOC,
+    REJECT_DOC,
+    REUPLOAD_REQUEST,
+    SHARE_DOC,
+    REVOKE_SHARE,
+    REQUEST_DOC,
+    PROCESS_REQUEST,
+    CREATE_USER,
+    UPDATE_USER,
+    DEACTIVATE_USER,
+    ACTIVATE_USER,
+    UPDATE_PROFILE,
+    DOWNLOAD_DOC
+}
