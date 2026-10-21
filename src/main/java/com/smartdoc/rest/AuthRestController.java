@@ -36,9 +36,13 @@ public class AuthRestController {
     // REGISTRATION FLOW REST ENDPOINTS
 
     @PostMapping("/register/request-otp")
-    public ResponseEntity<ApiResponse<String>> requestRegistrationOtp(@Valid @RequestBody OtpRequestDto dto) {
-        otpService.sendRegistrationOtp(dto.getEmail());
-        return ResponseEntity.ok(ApiResponse.success("Verification OTP sent successfully to " + dto.getEmail(), "OTP_SENT"));
+    public ResponseEntity<ApiResponse<Map<String, String>>> requestRegistrationOtp(@Valid @RequestBody OtpRequestDto dto) {
+        String otp = otpService.sendRegistrationOtp(dto.getEmail());
+        Map<String, String> data = Map.of(
+                "status", "OTP_SENT",
+                "otp", otp != null ? otp : ""
+        );
+        return ResponseEntity.ok(ApiResponse.success("Verification OTP sent successfully to " + dto.getEmail(), data));
     }
 
     @PostMapping("/register/verify-otp")
@@ -72,9 +76,13 @@ public class AuthRestController {
     // FORGOT / RESET PASSWORD FLOW REST ENDPOINTS
 
     @PostMapping("/forgot-password/request-otp")
-    public ResponseEntity<ApiResponse<String>> requestForgotPasswordOtp(@Valid @RequestBody OtpRequestDto dto) {
-        otpService.sendPasswordResetOtp(dto.getEmail());
-        return ResponseEntity.ok(ApiResponse.success("Password reset code sent to " + dto.getEmail(), "RESET_OTP_SENT"));
+    public ResponseEntity<ApiResponse<Map<String, String>>> requestForgotPasswordOtp(@Valid @RequestBody OtpRequestDto dto) {
+        String otp = otpService.sendPasswordResetOtp(dto.getEmail());
+        Map<String, String> data = Map.of(
+                "status", "RESET_OTP_SENT",
+                "otp", otp != null ? otp : ""
+        );
+        return ResponseEntity.ok(ApiResponse.success("Password reset code sent to " + dto.getEmail(), data));
     }
 
     @PostMapping("/forgot-password/verify-otp")

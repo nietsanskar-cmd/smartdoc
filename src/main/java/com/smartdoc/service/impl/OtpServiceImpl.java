@@ -42,7 +42,7 @@ public class OtpServiceImpl implements OtpService {
 
     @Override
     @Transactional
-    public void sendRegistrationOtp(String rawEmail) {
+    public String sendRegistrationOtp(String rawEmail) {
         String email = normalizeEmail(rawEmail);
         validateNietDomain(email);
 
@@ -67,11 +67,12 @@ public class OtpServiceImpl implements OtpService {
 
         otpRepository.save(record);
         emailService.sendOtpEmail(email, otp, OtpPurpose.REGISTRATION);
+        return otp;
     }
 
     @Override
     @Transactional
-    public void sendPasswordResetOtp(String rawEmail) {
+    public String sendPasswordResetOtp(String rawEmail) {
         String email = normalizeEmail(rawEmail);
         validateNietDomain(email);
 
@@ -95,6 +96,7 @@ public class OtpServiceImpl implements OtpService {
 
         otpRepository.save(record);
         emailService.sendOtpEmail(email, otp, OtpPurpose.PASSWORD_RESET);
+        return otp;
     }
 
     @Override

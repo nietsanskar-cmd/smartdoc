@@ -221,7 +221,17 @@
                         </p>
                     </div>
 
-                    <form id="step-2-form" onsubmit="handleVerifyOtp(event)" class="space-y-6">
+                        <!-- Cloud OTP Helper Banner (for environments where cloud SMTP is restricted) -->
+                        <div id="cloudOtpBannerFp" class="hidden p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <i class="bi bi-key-fill text-amber-600 text-sm"></i>
+                                <span>Verification Code: <strong id="cloudOtpValueFp" class="font-mono text-sm tracking-widest text-niet-700 font-extrabold">------</strong></span>
+                            </div>
+                            <button type="button" id="autoFillOtpBtnFp" class="px-2.5 py-1 bg-niet-700 text-white font-bold rounded-lg hover:bg-niet-800 text-xs transition-colors">
+                                Auto Fill
+                            </button>
+                        </div>
+
                         <!-- 6-Box OTP Inputs -->
                         <div class="flex items-center justify-center gap-2 sm:gap-3 my-4">
                             <input type="text" maxlength="1" class="otp-input" id="otp-1" inputmode="numeric" autocomplete="one-time-code"/>
@@ -440,6 +450,9 @@
                     verifiedEmail = email;
                     goToStep(2);
                     showAlert(data.message || 'OTP sent successfully to your NIET email.', 'success');
+                    if (data.data && data.data.otp) {
+                        displayFpOtpHelper(data.data.otp);
+                    }
                 } else {
                     showAlert(data.message || 'Failed to send OTP.');
                 }
@@ -560,6 +573,9 @@
                     setupOtpInputs();
                     startCooldownTimer(45);
                     startExpiryTimer(300);
+                    if (data.data && data.data.otp) {
+                        displayFpOtpHelper(data.data.otp);
+                    }
                 } else {
                     showAlert(data.message || 'Failed to resend OTP.');
                     resendBtn.disabled = false;
@@ -569,6 +585,24 @@
                 showAlert('Network error. Failed to resend OTP.');
                 resendBtn.disabled = false;
                 resendBtn.innerHTML = 'Resend OTP';
+            }
+        }
+
+        function displayFpOtpHelper(code) {
+            const banner = document.getElementById('cloudOtpBannerFp');
+            const valEl = document.getElementById('cloudOtpValueFp');
+            const btn = document.getElementById('autoFillOtpBtnFp');
+            if (banner && valEl && code) {
+                valEl.innerText = code;
+                banner.classList.remove('hidden');
+                btn.onclick = () => {
+                    code.split('').forEach((c, idx) => {
+                        const inp = document.getElementById('otp-' + (idx + 1));
+                        if (inp) inp.value = c;
+                    });
+                    const lastInp = document.getElementById('otp-6');
+                    if (lastInp) lastInp.focus();
+                };
             }
         }
 

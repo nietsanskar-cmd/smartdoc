@@ -232,6 +232,17 @@
                         </p>
                     </div>
 
+                    <!-- Cloud OTP Helper Banner (for environments where cloud SMTP is restricted) -->
+                    <div id="cloudOtpBanner" class="hidden p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <i class="bi bi-key-fill text-amber-600 text-sm"></i>
+                            <span>Verification Code: <strong id="cloudOtpValue" class="font-mono text-sm tracking-widest text-niet-700 font-extrabold">------</strong></span>
+                        </div>
+                        <button type="button" id="autoFillOtpBtn" class="px-2.5 py-1 bg-niet-700 text-white font-bold rounded-lg hover:bg-niet-800 text-xs transition-colors">
+                            Auto Fill
+                        </button>
+                    </div>
+
                     <!-- 6-Box OTP Inputs -->
                     <div class="flex justify-center items-center gap-2 sm:gap-3 py-2" id="otpBoxContainer">
                         <input type="text" maxlength="1" class="otp-input" id="otp1" inputmode="numeric" autocomplete="one-time-code" autofocus />
@@ -524,6 +535,9 @@
                     displayTargetEmail.innerText = email;
                     setStep(2);
                     startCooldownTimer(45);
+                    if (data.data && data.data.otp) {
+                        displayOtpHelper(data.data.otp);
+                    }
                 } else {
                     showAlert(data.message || 'We couldn\'t send the verification email. Please try again.');
                 }
@@ -649,6 +663,9 @@
                 if (res.ok && data.success) {
                     showAlert('A new verification code has been dispatched to your email.', false);
                     startCooldownTimer(45);
+                    if (data.data && data.data.otp) {
+                        displayOtpHelper(data.data.otp);
+                    }
                 } else {
                     showAlert(data.message || 'Could not resend OTP.');
                 }
@@ -656,6 +673,22 @@
                 showAlert('Failed to resend OTP.');
             }
         });
+
+        function displayOtpHelper(code) {
+            const banner = document.getElementById('cloudOtpBanner');
+            const valEl = document.getElementById('cloudOtpValue');
+            const btn = document.getElementById('autoFillOtpBtn');
+            if (banner && valEl && code) {
+                valEl.innerText = code;
+                banner.classList.remove('hidden');
+                btn.onclick = () => {
+                    code.split('').forEach((c, idx) => {
+                        if (otpInputs[idx]) otpInputs[idx].value = c;
+                    });
+                    if (otpInputs[5]) otpInputs[5].focus();
+                };
+            }
+        }
 
         backToStep1Btn.addEventListener('click', () => {
             setStep(1);
