@@ -60,10 +60,9 @@ public class DataSeeder {
 
     @EventListener(ApplicationReadyEvent.class)
     public void onApplicationReady() {
-        // Run in detached background thread so it NEVER blocks or interrupts container startup
         Thread seederThread = new Thread(() -> {
             try {
-                Thread.sleep(4000); // Allow web server to bind to port and stabilize
+                Thread.sleep(3000);
                 seedAll();
             } catch (Throwable t) {
                 log.warn("[SDMS-SEEDER] Background seeding notice: {}", t.getMessage());
@@ -128,8 +127,18 @@ public class DataSeeder {
 
     private void seedAcademicYears() {
         if (academicYearRepository.count() == 0) {
-            academicYearRepository.save(AcademicYear.builder().yearName("2024-2025").isCurrent(false).build());
-            academicYearRepository.save(AcademicYear.builder().yearName("2025-2026").isCurrent(true).build());
+            academicYearRepository.save(AcademicYear.builder()
+                    .yearName("2024-2025")
+                    .startDate(LocalDate.of(2024, 7, 1))
+                    .endDate(LocalDate.of(2025, 6, 30))
+                    .isCurrent(false)
+                    .build());
+            academicYearRepository.save(AcademicYear.builder()
+                    .yearName("2025-2026")
+                    .startDate(LocalDate.of(2025, 7, 1))
+                    .endDate(LocalDate.of(2026, 6, 30))
+                    .isCurrent(true)
+                    .build());
             log.info("[SDMS-SEEDER] Seeded academic years.");
         }
     }
@@ -171,10 +180,34 @@ public class DataSeeder {
         Role facultyRole = roleRepository.findByRoleName(RoleType.ROLE_FACULTY).orElse(null);
         Role studentRole = roleRepository.findByRoleName(RoleType.ROLE_STUDENT).orElse(null);
 
-        Department dept = departmentRepository.findByDeptCode("CSE").orElseGet(() -> departmentRepository.findAll().stream().findFirst().orElse(null));
-        Course course = courseRepository.findByCourseCode("BTECH_CSE").orElseGet(() -> courseRepository.findAll().stream().findFirst().orElse(null));
-        AcademicYear year = academicYearRepository.findByIsCurrentTrue().orElseGet(() -> academicYearRepository.findAll().stream().findFirst().orElse(null));
-        Semester sem = semesterRepository.findBySemesterNumber(4).orElseGet(() -> semesterRepository.findAll().stream().findFirst().orElse(null));
+        Department dept = departmentRepository.findByDeptCode("CSE").orElseGet(() ->
+                departmentRepository.findAll().stream().findFirst().orElseGet(() ->
+                        departmentRepository.save(Department.builder().deptCode("CSE").deptName("Computer Science and Engineering").isActive(true).build())
+                )
+        );
+
+        Course course = courseRepository.findByCourseCode("BTECH_CSE").orElseGet(() ->
+                courseRepository.findAll().stream().findFirst().orElseGet(() ->
+                        courseRepository.save(Course.builder().courseCode("BTECH_CSE").courseName("B.Tech in Computer Science and Engineering").department(dept).totalSemesters(8).degreeLevel("Undergraduate").isActive(true).build())
+                )
+        );
+
+        AcademicYear year = academicYearRepository.findByIsCurrentTrue().orElseGet(() ->
+                academicYearRepository.findAll().stream().findFirst().orElseGet(() ->
+                        academicYearRepository.save(AcademicYear.builder()
+                                .yearName("2025-2026")
+                                .startDate(LocalDate.of(2025, 7, 1))
+                                .endDate(LocalDate.of(2026, 6, 30))
+                                .isCurrent(true)
+                                .build())
+                )
+        );
+
+        Semester sem = semesterRepository.findBySemesterNumber(4).orElseGet(() ->
+                semesterRepository.findAll().stream().findFirst().orElseGet(() ->
+                        semesterRepository.save(Semester.builder().semesterNumber(4).semesterName("Semester 4").build())
+                )
+        );
 
         // 1. Admin Account: admin / admin@niet.co.in (Password: Admin@2026)
         if (adminRole != null && userRepository.findByUsername("admin").isEmpty()) {
@@ -217,17 +250,25 @@ public class DataSeeder {
         }
 
         // 3. Sanskar Khari Student Account: 0241mcsd011 / 0241mcsd011@niet.co.in / Roll: 2401330100550 (Password: Sanskar@2006)
-        if (studentRole != null && dept != null && course != null && year != null && sem != null) {
-            if (userRepository.findByUsername("0241mcsd011").isEmpty() && userRepository.findByEmail("0241mcsd011@niet.co.in").isEmpty()) {
-                User studentUser = userRepository.save(User.builder()
-                        .username("0241mcsd011")
-                        .email("0241mcsd011@niet.co.in")
-                        .passwordHash(passwordEncoder.encode("Sanskar@2006"))
-                        .role(studentRole)
-                        .isActive(true)
-                        .emailVerified(true)
-                        .build());
+        if (studentRole != null) {
+            User studentUser = userRepository.findByUsername("0241mcsd011")
+                    .or(() -> userRepository.findByEmail("0241mcsd011@niet.co.in"))
+                    .orElseGet(() -> userRepository.save(User.builder()
+                            .username("0241mcsd011")
+                            .email("0241mcsd011@niet.co.in")
+                            .passwordHash(passwordEncoder.encode("Sanskar@2006"))
+                            .role(studentRole)
+                            .isActive(true)
+                            .emailVerified(true)
+                            .build()));
 
+            // Always ensure password is updated to Sanskar@2006
+            studentUser.setPasswordHash(passwordEncoder.encode("Sanskar@2006"));
+            studentUser.setIsActive(true);
+            studentUser.setEmailVerified(true);
+            userRepository.save(studentUser);
+
+            if (studentRepository.findByUserId(studentUser.getId()).isEmpty()) {
                 studentRepository.save(Student.builder()
                         .user(studentUser)
                         .enrollmentNo("0241MCSD011")
@@ -245,20 +286,24 @@ public class DataSeeder {
                         .completenessScore(new BigDecimal("80.00"))
                         .completenessTier(CompletenessTier.GOOD)
                         .build());
-                log.info("[SDMS-SEEDER] Seeded Student account: 0241mcsd011 / Roll: 2401330100550 / Sanskar@2006");
+                log.info("[SDMS-SEEDER] Seeded Student profile: 0241mcsd011 / Roll: 2401330100550");
             }
+        }
 
-            // 4. Sample Student: student.aarav / aarav.sharma@niet.co.in / Roll: 23CSE101 (Password: password123)
-            if (userRepository.findByUsername("student.aarav").isEmpty() && userRepository.findByEmail("aarav.sharma@niet.co.in").isEmpty()) {
-                User aaravUser = userRepository.save(User.builder()
-                        .username("student.aarav")
-                        .email("aarav.sharma@niet.co.in")
-                        .passwordHash(passwordEncoder.encode("password123"))
-                        .role(studentRole)
-                        .isActive(true)
-                        .emailVerified(true)
-                        .build());
+        // 4. Sample Student: student.aarav / aarav.sharma@niet.co.in / Roll: 23CSE101 (Password: password123)
+        if (studentRole != null) {
+            User aaravUser = userRepository.findByUsername("student.aarav")
+                    .or(() -> userRepository.findByEmail("aarav.sharma@niet.co.in"))
+                    .orElseGet(() -> userRepository.save(User.builder()
+                            .username("student.aarav")
+                            .email("aarav.sharma@niet.co.in")
+                            .passwordHash(passwordEncoder.encode("password123"))
+                            .role(studentRole)
+                            .isActive(true)
+                            .emailVerified(true)
+                            .build()));
 
+            if (studentRepository.findByUserId(aaravUser.getId()).isEmpty()) {
                 studentRepository.save(Student.builder()
                         .user(aaravUser)
                         .enrollmentNo("EN2023CSE0101")
@@ -276,7 +321,7 @@ public class DataSeeder {
                         .completenessScore(new BigDecimal("80.00"))
                         .completenessTier(CompletenessTier.GOOD)
                         .build());
-                log.info("[SDMS-SEEDER] Seeded Student account: student.aarav / Roll: 23CSE101 / password123");
+                log.info("[SDMS-SEEDER] Seeded Student profile: student.aarav / Roll: 23CSE101");
             }
         }
     }
