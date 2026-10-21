@@ -28,5 +28,5 @@ COPY --from=build /app/target/*.war app.war
 ENV PORT=8090
 EXPOSE 8090
 
-# Run the Spring Boot application
-ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-jar", "app.war"]
+# Run the Spring Boot application with memory optimization for 512MB RAM container
+ENTRYPOINT ["java", "-Xms128m", "-Xmx384m", "-XX:+UseSerialGC", "-Djava.security.egd=file:/dev/./urandom", "-jar", "app.war"]

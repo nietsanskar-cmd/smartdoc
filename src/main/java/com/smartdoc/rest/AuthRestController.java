@@ -23,6 +23,7 @@ public class AuthRestController {
 
     private final UserService userService;
     private final OtpService otpService;
+    private final com.smartdoc.config.DataSeeder dataSeeder;
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<UserSession>> login(@Valid @RequestBody LoginRequestDto dto,
@@ -95,5 +96,14 @@ public class AuthRestController {
     public ResponseEntity<ApiResponse<String>> resetPassword(@Valid @RequestBody ResetPasswordDto dto) {
         userService.resetPasswordWithVerifiedEmail(dto);
         return ResponseEntity.ok(ApiResponse.success("Password reset successfully. You can now login.", "PASSWORD_RESET_SUCCESS"));
+    }
+
+    @GetMapping("/seed-database")
+    public ResponseEntity<ApiResponse<String>> manualSeedDatabase(@RequestParam(value = "secret", defaultValue = "") String secret) {
+        if (!"niet2026".equals(secret)) {
+            return ResponseEntity.status(403).body(ApiResponse.error("Invalid secret key"));
+        }
+        String report = dataSeeder.seedAll();
+        return ResponseEntity.ok(ApiResponse.success("Database seed executed: " + report, report));
     }
 }

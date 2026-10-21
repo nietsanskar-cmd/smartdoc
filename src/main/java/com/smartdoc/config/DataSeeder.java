@@ -5,18 +5,18 @@ import com.smartdoc.entity.enums.CompletenessTier;
 import com.smartdoc.entity.enums.RoleType;
 import com.smartdoc.repository.*;
 import com.smartdoc.security.PasswordEncoderUtil;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.CommandLineRunner;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Component
-@RequiredArgsConstructor
 @Slf4j
-public class DataSeeder implements CommandLineRunner {
+public class DataSeeder {
 
     private final RoleRepository roleRepository;
     private final DepartmentRepository departmentRepository;
@@ -31,17 +31,60 @@ public class DataSeeder implements CommandLineRunner {
     private final FacultyRepository facultyRepository;
     private final PasswordEncoderUtil passwordEncoder;
 
-    @Override
-    public void run(String... args) {
+    @Autowired
+    public DataSeeder(RoleRepository roleRepository,
+                      DepartmentRepository departmentRepository,
+                      CourseRepository courseRepository,
+                      AcademicYearRepository academicYearRepository,
+                      SemesterRepository semesterRepository,
+                      DocumentCategoryRepository categoryRepository,
+                      DocumentTypeRepository documentTypeRepository,
+                      RequiredDocumentRepository requiredDocRepository,
+                      UserRepository userRepository,
+                      StudentRepository studentRepository,
+                      FacultyRepository facultyRepository,
+                      PasswordEncoderUtil passwordEncoder) {
+        this.roleRepository = roleRepository;
+        this.departmentRepository = departmentRepository;
+        this.courseRepository = courseRepository;
+        this.academicYearRepository = academicYearRepository;
+        this.semesterRepository = semesterRepository;
+        this.categoryRepository = categoryRepository;
+        this.documentTypeRepository = documentTypeRepository;
+        this.requiredDocRepository = requiredDocRepository;
+        this.userRepository = userRepository;
+        this.studentRepository = studentRepository;
+        this.facultyRepository = facultyRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void onApplicationReady() {
+        // Run in detached background thread so it NEVER blocks or interrupts container startup
+        Thread seederThread = new Thread(() -> {
+            try {
+                Thread.sleep(4000); // Allow web server to bind to port and stabilize
+                seedAll();
+            } catch (Throwable t) {
+                log.warn("[SDMS-SEEDER] Background seeding notice: {}", t.getMessage());
+            }
+        }, "AsyncDataSeeder");
+        seederThread.setDaemon(true);
+        seederThread.start();
+    }
+
+    public synchronized String seedAll() {
+        StringBuilder report = new StringBuilder();
         log.info("[SDMS-SEEDER] Starting database verification and seeding...");
-        try { seedRoles(); } catch (Exception e) { log.warn("[SDMS-SEEDER] Role seed: {}", e.getMessage()); }
-        try { seedDepartments(); } catch (Exception e) { log.warn("[SDMS-SEEDER] Dept seed: {}", e.getMessage()); }
-        try { seedCourses(); } catch (Exception e) { log.warn("[SDMS-SEEDER] Course seed: {}", e.getMessage()); }
-        try { seedAcademicYears(); } catch (Exception e) { log.warn("[SDMS-SEEDER] Academic year seed: {}", e.getMessage()); }
-        try { seedSemesters(); } catch (Exception e) { log.warn("[SDMS-SEEDER] Semester seed: {}", e.getMessage()); }
-        try { seedCategoriesAndDocTypes(); } catch (Exception e) { log.warn("[SDMS-SEEDER] Doc types seed: {}", e.getMessage()); }
-        try { seedUsersAndProfiles(); } catch (Exception e) { log.warn("[SDMS-SEEDER] User profiles seed: {}", e.getMessage()); }
-        log.info("[SDMS-SEEDER] Finished database verification and seeding.");
+        try { seedRoles(); report.append("Roles: OK. "); } catch (Throwable t) { report.append("Roles: ").append(t.getMessage()).append(". "); }
+        try { seedDepartments(); report.append("Depts: OK. "); } catch (Throwable t) { report.append("Depts: ").append(t.getMessage()).append(". "); }
+        try { seedCourses(); report.append("Courses: OK. "); } catch (Throwable t) { report.append("Courses: ").append(t.getMessage()).append(". "); }
+        try { seedAcademicYears(); report.append("Years: OK. "); } catch (Throwable t) { report.append("Years: ").append(t.getMessage()).append(". "); }
+        try { seedSemesters(); report.append("Semesters: OK. "); } catch (Throwable t) { report.append("Semesters: ").append(t.getMessage()).append(". "); }
+        try { seedCategoriesAndDocTypes(); report.append("DocTypes: OK. "); } catch (Throwable t) { report.append("DocTypes: ").append(t.getMessage()).append(". "); }
+        try { seedUsersAndProfiles(); report.append("Users & Students: OK. "); } catch (Throwable t) { report.append("Users: ").append(t.getMessage()).append(". "); }
+        log.info("[SDMS-SEEDER] Seeding result: {}", report.toString());
+        return report.toString();
     }
 
     private void seedRoles() {
