@@ -9,11 +9,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -34,21 +32,16 @@ public class DataSeeder implements CommandLineRunner {
     private final PasswordEncoderUtil passwordEncoder;
 
     @Override
-    @Transactional
     public void run(String... args) {
-        try {
-            log.info("[SDMS-SEEDER] Verifying and seeding initial database records...");
-            seedRoles();
-            seedDepartments();
-            seedCourses();
-            seedAcademicYears();
-            seedSemesters();
-            seedCategoriesAndDocTypes();
-            seedUsersAndProfiles();
-            log.info("[SDMS-SEEDER] Database seeding successfully checked and completed.");
-        } catch (Exception e) {
-            log.error("[SDMS-SEEDER] Error during database seeding: {}", e.getMessage(), e);
-        }
+        log.info("[SDMS-SEEDER] Starting database verification and seeding...");
+        try { seedRoles(); } catch (Exception e) { log.warn("[SDMS-SEEDER] Role seed: {}", e.getMessage()); }
+        try { seedDepartments(); } catch (Exception e) { log.warn("[SDMS-SEEDER] Dept seed: {}", e.getMessage()); }
+        try { seedCourses(); } catch (Exception e) { log.warn("[SDMS-SEEDER] Course seed: {}", e.getMessage()); }
+        try { seedAcademicYears(); } catch (Exception e) { log.warn("[SDMS-SEEDER] Academic year seed: {}", e.getMessage()); }
+        try { seedSemesters(); } catch (Exception e) { log.warn("[SDMS-SEEDER] Semester seed: {}", e.getMessage()); }
+        try { seedCategoriesAndDocTypes(); } catch (Exception e) { log.warn("[SDMS-SEEDER] Doc types seed: {}", e.getMessage()); }
+        try { seedUsersAndProfiles(); } catch (Exception e) { log.warn("[SDMS-SEEDER] User profiles seed: {}", e.getMessage()); }
+        log.info("[SDMS-SEEDER] Finished database verification and seeding.");
     }
 
     private void seedRoles() {
@@ -72,9 +65,9 @@ public class DataSeeder implements CommandLineRunner {
 
     private void seedCourses() {
         if (courseRepository.count() == 0) {
-            Department cse = departmentRepository.findByDeptCode("CSE").orElse(null);
-            Department ece = departmentRepository.findByDeptCode("ECE").orElse(null);
-            Department it = departmentRepository.findByDeptCode("IT").orElse(null);
+            Department cse = departmentRepository.findByDeptCode("CSE").orElseGet(() -> departmentRepository.findAll().stream().findFirst().orElse(null));
+            Department ece = departmentRepository.findByDeptCode("ECE").orElse(cse);
+            Department it = departmentRepository.findByDeptCode("IT").orElse(cse);
 
             if (cse != null) {
                 courseRepository.save(Course.builder().courseCode("BTECH_CSE").courseName("B.Tech in Computer Science and Engineering").department(cse).totalSemesters(8).degreeLevel("Undergraduate").isActive(true).build());
@@ -112,7 +105,7 @@ public class DataSeeder implements CommandLineRunner {
             DocumentCategory identity = categoryRepository.save(DocumentCategory.builder().categoryName("IDENTITY").description("Government and Institutional Identity").iconClass("bi-person-badge").build());
             DocumentCategory academic = categoryRepository.save(DocumentCategory.builder().categoryName("ACADEMIC").description("Secondary and University Marksheets").iconClass("bi-mortarboard").build());
             DocumentCategory college = categoryRepository.save(DocumentCategory.builder().categoryName("COLLEGE").description("Campus IDs and Admission Proofs").iconClass("bi-building").build());
-            DocumentCategory certs = categoryRepository.save(DocumentCategory.builder().categoryName("CERTIFICATES").description("Certifications and Projects").iconClass("bi-award").build());
+            categoryRepository.save(DocumentCategory.builder().categoryName("CERTIFICATES").description("Certifications and Projects").iconClass("bi-award").build());
 
             DocumentType aadhaar = documentTypeRepository.save(DocumentType.builder().category(identity).typeCode("AADHAAR_CARD").typeName("Aadhaar Card").description("Government Issued National UID").isExpiryApplicable(false).isActive(true).build());
             DocumentType mark10 = documentTypeRepository.save(DocumentType.builder().category(academic).typeCode("MARKSHEET_10TH").typeName("10th Standard Marksheet").description("Class 10 Matriculation Certificate").isExpiryApplicable(false).isActive(true).build());
@@ -134,10 +127,11 @@ public class DataSeeder implements CommandLineRunner {
         Role adminRole = roleRepository.findByRoleName(RoleType.ROLE_ADMIN).orElse(null);
         Role facultyRole = roleRepository.findByRoleName(RoleType.ROLE_FACULTY).orElse(null);
         Role studentRole = roleRepository.findByRoleName(RoleType.ROLE_STUDENT).orElse(null);
-        Department cseDept = departmentRepository.findByDeptCode("CSE").orElse(null);
-        Course cseCourse = courseRepository.findByCourseCode("BTECH_CSE").orElse(null);
-        AcademicYear currentYear = academicYearRepository.findByIsCurrentTrue().orElse(null);
-        Semester sem4 = semesterRepository.findBySemesterNumber(4).orElse(null);
+
+        Department dept = departmentRepository.findByDeptCode("CSE").orElseGet(() -> departmentRepository.findAll().stream().findFirst().orElse(null));
+        Course course = courseRepository.findByCourseCode("BTECH_CSE").orElseGet(() -> courseRepository.findAll().stream().findFirst().orElse(null));
+        AcademicYear year = academicYearRepository.findByIsCurrentTrue().orElseGet(() -> academicYearRepository.findAll().stream().findFirst().orElse(null));
+        Semester sem = semesterRepository.findBySemesterNumber(4).orElseGet(() -> semesterRepository.findAll().stream().findFirst().orElse(null));
 
         // 1. Admin Account: admin / admin@niet.co.in (Password: Admin@2026)
         if (adminRole != null && userRepository.findByUsername("admin").isEmpty()) {
@@ -149,11 +143,11 @@ public class DataSeeder implements CommandLineRunner {
                     .isActive(true)
                     .emailVerified(true)
                     .build());
-            log.info("[SDMS-SEEDER] Seeded Admin account: admin (Password: Admin@2026)");
+            log.info("[SDMS-SEEDER] Seeded Admin account: admin / Admin@2026");
         }
 
         // 2. Faculty Account: dr.sharma / sharma@niet.co.in (Password: Password@123)
-        Faculty savedFaculty = null;
+        Faculty faculty = facultyRepository.findByEmployeeCode("FAC_CSE_001").orElse(null);
         if (facultyRole != null && userRepository.findByUsername("dr.sharma").isEmpty()) {
             User facUser = userRepository.save(User.builder()
                     .username("dr.sharma")
@@ -164,81 +158,83 @@ public class DataSeeder implements CommandLineRunner {
                     .emailVerified(true)
                     .build());
 
-            savedFaculty = facultyRepository.save(Faculty.builder()
-                    .user(facUser)
-                    .employeeCode("FAC_CSE_001")
-                    .firstName("Dr. Ramesh")
-                    .lastName("Sharma")
-                    .phone("+91 98765 43210")
-                    .department(cseDept)
-                    .designation("Professor & HOD")
-                    .qualification("Ph.D. in Computer Science")
-                    .build());
-            log.info("[SDMS-SEEDER] Seeded Faculty account: dr.sharma (Password: Password@123)");
-        } else if (facultyRepository.findByEmployeeCode("FAC_CSE_001").isPresent()) {
-            savedFaculty = facultyRepository.findByEmployeeCode("FAC_CSE_001").get();
+            if (dept != null) {
+                faculty = facultyRepository.save(Faculty.builder()
+                        .user(facUser)
+                        .employeeCode("FAC_CSE_001")
+                        .firstName("Dr. Ramesh")
+                        .lastName("Sharma")
+                        .phone("+91 98765 43210")
+                        .department(dept)
+                        .designation("Professor & HOD")
+                        .qualification("Ph.D. in Computer Science")
+                        .build());
+                log.info("[SDMS-SEEDER] Seeded Faculty account: dr.sharma / Password@123");
+            }
         }
 
         // 3. Sanskar Khari Student Account: 0241mcsd011 / 0241mcsd011@niet.co.in / Roll: 2401330100550 (Password: Sanskar@2006)
-        if (studentRole != null && userRepository.findByUsername("0241mcsd011").isEmpty() && userRepository.findByEmail("0241mcsd011@niet.co.in").isEmpty()) {
-            User studentUser = userRepository.save(User.builder()
-                    .username("0241mcsd011")
-                    .email("0241mcsd011@niet.co.in")
-                    .passwordHash(passwordEncoder.encode("Sanskar@2006"))
-                    .role(studentRole)
-                    .isActive(true)
-                    .emailVerified(true)
-                    .build());
+        if (studentRole != null && dept != null && course != null && year != null && sem != null) {
+            if (userRepository.findByUsername("0241mcsd011").isEmpty() && userRepository.findByEmail("0241mcsd011@niet.co.in").isEmpty()) {
+                User studentUser = userRepository.save(User.builder()
+                        .username("0241mcsd011")
+                        .email("0241mcsd011@niet.co.in")
+                        .passwordHash(passwordEncoder.encode("Sanskar@2006"))
+                        .role(studentRole)
+                        .isActive(true)
+                        .emailVerified(true)
+                        .build());
 
-            studentRepository.save(Student.builder()
-                    .user(studentUser)
-                    .enrollmentNo("0241MCSD011")
-                    .rollNo("2401330100550")
-                    .firstName("Sanskar")
-                    .lastName("Khari")
-                    .dob(LocalDate.of(2004, 5, 15))
-                    .gender("Male")
-                    .phone("+91 91234 56789")
-                    .department(cseDept)
-                    .course(cseCourse)
-                    .academicYear(currentYear)
-                    .currentSemester(sem4)
-                    .assignedFaculty(savedFaculty)
-                    .completenessScore(new BigDecimal("80.00"))
-                    .completenessTier(CompletenessTier.GOOD)
-                    .build());
-            log.info("[SDMS-SEEDER] Seeded Student account: 0241mcsd011 / Roll: 2401330100550 (Password: Sanskar@2006)");
-        }
+                studentRepository.save(Student.builder()
+                        .user(studentUser)
+                        .enrollmentNo("0241MCSD011")
+                        .rollNo("2401330100550")
+                        .firstName("Sanskar")
+                        .lastName("Khari")
+                        .dob(LocalDate.of(2004, 5, 15))
+                        .gender("Male")
+                        .phone("+91 91234 56789")
+                        .department(dept)
+                        .course(course)
+                        .academicYear(year)
+                        .currentSemester(sem)
+                        .assignedFaculty(faculty)
+                        .completenessScore(new BigDecimal("80.00"))
+                        .completenessTier(CompletenessTier.GOOD)
+                        .build());
+                log.info("[SDMS-SEEDER] Seeded Student account: 0241mcsd011 / Roll: 2401330100550 / Sanskar@2006");
+            }
 
-        // 4. Sample Student: student.aarav / aarav.sharma@niet.co.in / Roll: 23CSE101 (Password: password123)
-        if (studentRole != null && userRepository.findByUsername("student.aarav").isEmpty()) {
-            User aaravUser = userRepository.save(User.builder()
-                    .username("student.aarav")
-                    .email("aarav.sharma@niet.co.in")
-                    .passwordHash(passwordEncoder.encode("password123"))
-                    .role(studentRole)
-                    .isActive(true)
-                    .emailVerified(true)
-                    .build());
+            // 4. Sample Student: student.aarav / aarav.sharma@niet.co.in / Roll: 23CSE101 (Password: password123)
+            if (userRepository.findByUsername("student.aarav").isEmpty() && userRepository.findByEmail("aarav.sharma@niet.co.in").isEmpty()) {
+                User aaravUser = userRepository.save(User.builder()
+                        .username("student.aarav")
+                        .email("aarav.sharma@niet.co.in")
+                        .passwordHash(passwordEncoder.encode("password123"))
+                        .role(studentRole)
+                        .isActive(true)
+                        .emailVerified(true)
+                        .build());
 
-            studentRepository.save(Student.builder()
-                    .user(aaravUser)
-                    .enrollmentNo("EN2023CSE0101")
-                    .rollNo("23CSE101")
-                    .firstName("Aarav")
-                    .lastName("Sharma")
-                    .dob(LocalDate.of(2004, 8, 20))
-                    .gender("Male")
-                    .phone("+91 91234 56780")
-                    .department(cseDept)
-                    .course(cseCourse)
-                    .academicYear(currentYear)
-                    .currentSemester(sem4)
-                    .assignedFaculty(savedFaculty)
-                    .completenessScore(new BigDecimal("80.00"))
-                    .completenessTier(CompletenessTier.GOOD)
-                    .build());
-            log.info("[SDMS-SEEDER] Seeded Student account: student.aarav / Roll: 23CSE101 (Password: password123)");
+                studentRepository.save(Student.builder()
+                        .user(aaravUser)
+                        .enrollmentNo("EN2023CSE0101")
+                        .rollNo("23CSE101")
+                        .firstName("Aarav")
+                        .lastName("Sharma")
+                        .dob(LocalDate.of(2004, 8, 20))
+                        .gender("Male")
+                        .phone("+91 91234 56780")
+                        .department(dept)
+                        .course(course)
+                        .academicYear(year)
+                        .currentSemester(sem)
+                        .assignedFaculty(faculty)
+                        .completenessScore(new BigDecimal("80.00"))
+                        .completenessTier(CompletenessTier.GOOD)
+                        .build());
+                log.info("[SDMS-SEEDER] Seeded Student account: student.aarav / Roll: 23CSE101 / password123");
+            }
         }
     }
 }
