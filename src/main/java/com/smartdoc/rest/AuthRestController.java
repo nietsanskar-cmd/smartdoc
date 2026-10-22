@@ -38,10 +38,9 @@ public class AuthRestController {
 
     @PostMapping("/register/request-otp")
     public ResponseEntity<ApiResponse<Map<String, String>>> requestRegistrationOtp(@Valid @RequestBody OtpRequestDto dto) {
-        String otp = otpService.sendRegistrationOtp(dto.getEmail());
+        otpService.sendRegistrationOtp(dto.getEmail());
         Map<String, String> data = Map.of(
-                "status", "OTP_SENT",
-                "otp", otp != null ? otp : ""
+                "status", "OTP_SENT"
         );
         return ResponseEntity.ok(ApiResponse.success("Verification OTP sent successfully to " + dto.getEmail(), data));
     }
@@ -78,10 +77,9 @@ public class AuthRestController {
 
     @PostMapping("/forgot-password/request-otp")
     public ResponseEntity<ApiResponse<Map<String, String>>> requestForgotPasswordOtp(@Valid @RequestBody OtpRequestDto dto) {
-        String otp = otpService.sendPasswordResetOtp(dto.getEmail());
+        otpService.sendPasswordResetOtp(dto.getEmail());
         Map<String, String> data = Map.of(
-                "status", "RESET_OTP_SENT",
-                "otp", otp != null ? otp : ""
+                "status", "RESET_OTP_SENT"
         );
         return ResponseEntity.ok(ApiResponse.success("Password reset code sent to " + dto.getEmail(), data));
     }
